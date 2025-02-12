@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as Tone from 'tone'
 import { Chord, Interval, Note, Scale} from 'tonal';
-
+import axios from "axios";
 
 const SCALE_OPTIONS = {
   'Major Pentatonic': Scale.get('C4 Major Pentatonic').notes,
@@ -16,8 +16,6 @@ const SCALE_OPTIONS = {
 let selectedScale = 'Major Pentatonic';
 let currentScale = SCALE_OPTIONS['Major Pentatonic'];
 
-console.log(SCALE_OPTIONS);
-
 type ScaleType = keyof typeof SCALE_OPTIONS;
 
 interface WikimediaEventData {
@@ -25,7 +23,7 @@ interface WikimediaEventData {
 	meta: { dt: string };
 	performer?: { user_text: string };
 	server_name?: string; 
-	length?: { old: number, new: number };
+	length?: { old: number | 0, new: number | 0 };
 	minor?: boolean;
 	comment?: string;
 	type?: string;
@@ -43,15 +41,15 @@ export default function WikiSynth() {
   useEffect(() => {
     // Create a filter
     filterRef.current = new Tone.Filter({
-      type: "lowpass",
-      frequency: 500,
+      type: "highpass",
+      frequency: 50,
       Q: 1
     }).toDestination();
 
     // Create a synth and connect it to the filter
     synthRef.current = new Tone.PolySynth(Tone.FMSynth, {
         harmonicity: 2,
-        modulationIndex: 3,
+        modulationIndex: 2,
         oscillator: {
           type: "sine"
         },
@@ -80,9 +78,8 @@ export default function WikiSynth() {
 
       // Generate musical parameters from the data
       const titleLength = data.title.length;
-      
+      const length_delta  = (data.length?.new || 0) - (data.length?.old || 0);
       currentScale = SCALE_OPTIONS[selectedScale];
-      console.log(selectedScale);
       
       const frequency = currentScale[titleLength % currentScale.length];
 
@@ -92,8 +89,9 @@ export default function WikiSynth() {
 
       // Play the note
       if (Tone.context.state === "running") {
-        console.log("Playing note ", frequency);
-        synthRef.current.triggerAttackRelease(frequency, "1n");
+        let velocity = 1/(1+Math.exp(-length_delta*.2));
+        console.log("Playing note ", frequency, ' for ', data.title, " at ", velocity);
+        synthRef.current.triggerAttackRelease(frequency, '1n', Tone.now() + Math.random(), velocity);
       }
 
       setLastEvent(data.title);
@@ -135,7 +133,6 @@ export default function WikiSynth() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-scale', selectedScale);
-    console.log('data scale:', selectedScale);
   }, [selectedScale]);
   // Update the scale selection handler
   const handleScaleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -163,7 +160,6 @@ export default function WikiSynth() {
           <select
           id="scale-select"
           style={{ visibility: 'hidden' }}
-          defaultValue="Major Pentatonic"
           value={selectedScale}
           onClick={soundOn}
           onChange={(e) => setSelectedScale(e.target.value as ScaleType)}
@@ -176,14 +172,6 @@ export default function WikiSynth() {
           ))}
           </select>
         </div>
-        
-
-        {/* <div className="text-sm text-foreground/80">
-          Last event: {lastEvent || 'None'}
-        </div> */}
-      </div>
-      <div className="text-sm text-foreground/60">
-        Each Wikipedia edit creates a unique sound based on the title length and editor activity.
       </div>
     </div>
   );

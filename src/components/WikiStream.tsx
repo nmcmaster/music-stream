@@ -36,7 +36,8 @@ export default function WikiStream() {
 		const handleChange = (data: WikimediaEventData) => {
 			if (data.server_name === "en.wikipedia.org" &&
 				data.type === "edit" &&
-				data.minor === false) {
+				data.minor === false &&
+				!data.title.includes(":")) {
 				const newChange = {
 					title: data.title,
 					timestamp: new Date(data.meta.dt).toISOString(),
@@ -106,18 +107,10 @@ export default function WikiStream() {
 
 			<div className="space-y-2">
 				{changes.map((change, index) => (
-					<div key={index} className="p-4 bg-white shadow rounded">
+					<div key={index} className="p-4 bg-white shadow rounded marquee">
 						<h3 className="font-semibold text-lg">
 							{change.title}
 						</h3>
-						<div className="text-sm text-gray-600">
-							<p>Editor: {change.user}</p>
-							<p>
-								Time:{" "}
-								{new Date(change.timestamp).toLocaleString()}
-							</p>
-							{change.comment && <p>Comment: {change.comment}</p>}
-						</div>
 					</div>
 				))}
 			</div>
